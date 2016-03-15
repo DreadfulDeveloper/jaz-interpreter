@@ -315,33 +315,33 @@ namespace jaz
     }
     
     //A tuple is an instruction "label" and the arguments for that instruction
-    public class JazTuple<Label, Args>
+    public class JazTuple<Action, Args>
     {
-        private Label L;
-        private Args A;
+        private Action A;
+        private Args R;
 
-        public JazTuple(Label head, Args rest)
+        public JazTuple(Action head, Args rest)
         {
             L = head;
             A = rest;
         }
 
-        public Label getLabel() {
-            return L;
+        public Action getAction() {
+            return A;
         }
         public Args getArgs()
         {
-            return A;
+            return R;
         }
 
-        public void setLabel(Label head)
+        public void setAction(Action a)
         {
-            L = head;
+            A = a;
         }
 
-        public void setArgs(Args rest)
+        public void setArgs(Args r)
         {
-            A = rest;
+            R = r;
         }
 
         public String toString()
