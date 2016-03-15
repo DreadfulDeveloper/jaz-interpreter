@@ -177,39 +177,37 @@ namespace jaz
     }
 
 
-    public class JazTuple<H, R>
+    public class JazTuple<Label, Args>
     {
-        private H Head;
-        private R Rest;
+        private Label L;
+        private Args A;
 
-        public JazTuple(H head, R rest)
+        public JazTuple(Label head, Args rest)
         {
-            Head = head;
-            Rest = rest;
-        }
-
-        public H gethead() {
-            return Head;
-        }
-        public R getRest()
-        {
-            return Rest;
-        }
-        public void setHead(H head)
-        {
-            Head = head;
+            L = head;
+            A = rest;
         }
 
-        public void setRest(R rest)
+        public Label gethead() {
+            return L;
+        }
+        public Args getRest()
         {
-            Rest = rest;
+            return A;
+        }
+        public void setHead(Label head)
+        {
+            L = head;
+        }
+
+        public void setRest(Args rest)
+        {
+            A = rest;
         }
 
         public String toString()
         {
-            return "(" + Head + Rest + ")";
+            return "(" + L + " " + A + ")";
         }
     }
-
-
 }
