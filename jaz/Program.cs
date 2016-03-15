@@ -18,7 +18,7 @@ namespace jaz
             // start parsing program into symbol table
             Parser parser = new Parser(args[0]);
             //evaluate symbol table once all symbols are loaded
-            //JazEvaluator eval = new JazEvaluator();
+            JazEvaluator eval = new JazEvaluator();
         }
     }
 
@@ -131,10 +131,10 @@ namespace jaz
         {
             int lineNumber = 0;
             JazTuple<string, string> currentInstruction = SymbolTable.symbolTable[lineNumber];
-            while(currentInstruction.getArgs() != "halt")
+            while(currentInstruction.getAction() != "halt")
             {
                 currentInstruction = SymbolTable.symbolTable[lineNumber];
-                switch (currentInstruction.getLabel())
+                switch (currentInstruction.getAction())
                 {
                     case "push":
                         push(currentInstruction);
@@ -146,13 +146,13 @@ namespace jaz
                         lValue(currentInstruction);
                         break;
                     case "pop":
-                        pop(currentInstruction);
+                        pop();
                         break;
                     case ":=":
                         colonEqual(currentInstruction);
                         break;
                     case "copy":
-                        copy(currentInstruction);
+                        copy();
                         break;
                     case "label":
                         label(currentInstruction);
@@ -229,15 +229,22 @@ namespace jaz
                     default:
                         break;
                 }
+                lineNumber++;
             }
         }
 
-        private void push(JazTuple<string, string> instruction) { }
+        private void push(JazTuple<string, string> instruction) {
+            executionStack.Push(instruction.getArgs());
+        }
         private void rValue(JazTuple<string, string> instruction) { }
         private void lValue(JazTuple<string, string> instruction) { }
-        private void pop(JazTuple<string, string> instruction) { }
+        private void pop() {
+            executionStack.Pop();
+        }
         private void colonEqual(JazTuple<string, string> instruction) { }
-        private void copy(JazTuple<string, string> instruction) { }
+        private void copy() {
+            executionStack.Push(executionStack.Peek());
+        }
         private void label(JazTuple<string, string> instruction) { }
         private void goTo(JazTuple<string, string> instruction) { }
         private void goFalse(JazTuple<string, string> instruction) { }
@@ -257,10 +264,12 @@ namespace jaz
         private void lessThan(JazTuple<string, string> instruction) { }
         private void greaterThan(JazTuple<string, string> instruction) { }
         private void equal(JazTuple<string, string> instruction) { }
-        private void print(JazTuple<string, string> instruction) { }
+        private void print(JazTuple<string, string> instruction) {
+            Console.WriteLine(executionStack.Pop());
+        }
         private void show(JazTuple<string, string> instruction)
         {
-
+            Console.WriteLine(instruction.getArgs());
         }
         private void begin(JazTuple<string, string> instruction) { }
         private void end(JazTuple<string, string> instruction) { }
@@ -295,7 +304,6 @@ namespace jaz
             string label = t.Split(' ')[0].Trim();
             string args = t.Substring(t.Split(' ')[0].Length).Trim();
 
-            Console.WriteLine(label + " " + args);
             if(!String.IsNullOrEmpty(label)) {
                 //load tuples into symbol table
                 if(label == "label")
@@ -320,10 +328,10 @@ namespace jaz
         private Action A;
         private Args R;
 
-        public JazTuple(Action head, Args rest)
+        public JazTuple(Action a, Args r)
         {
-            L = head;
-            A = rest;
+            A = a;
+            R = r;
         }
 
         public Action getAction() {
@@ -346,7 +354,7 @@ namespace jaz
 
         public String toString()
         {
-            return "(" + L + " " + A + ")";
+            return "(" + A + " " + R + ")";
         }
     }
 }
