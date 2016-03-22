@@ -24,12 +24,25 @@ namespace jaz
 
     public class JazEnv
     {
+		//TODO: Start adding to a different memory when 'begin' happens.
+		private Stack<Dictionary<string, string>> memoryStack;
+		private Dictionary<string, string> memory;
+		private Dictionary<string, string> newMemory;
+
 		private Dictionary<string, int> labels;
         private Stack<int> callee;
 		private Stack<Stack<string>> scopeStack;
 
+		private bool processArguments;
+
         public JazEnv()
         {
+			processArguments = false;
+			newMemory = null;
+
+			memoryStack = new Stack<Dictionary<string, string>>();
+			memory = new Dictionary<string, string> ();
+
 			labels = new Dictionary<string, int>();
 			callee = new Stack<int>();
 			scopeStack = new Stack<Stack<string>>();
@@ -37,13 +50,70 @@ namespace jaz
 
         public void startProc(int line)
         {
+			memoryStack.Push (memory);
+			memory = newMemory;
+			newMemory = null;
+			processArguments = false;
             callee.Push(line);
         }
 
         public int endProc()
         {
+			newMemory = memoryStack.Pop ();
+			processArguments = true;
             return callee.Pop();
         }
+
+		public void startProcArgs()
+		{
+			newMemory = new Dictionary<string, string> ();
+			processArguments = true;
+		}
+
+		public void endProcArgs()
+		{
+			memory = newMemory;
+			newMemory = null;
+			processArguments = false;
+		}
+
+		public void SetMemory(string address, string value)
+		{
+			if (processArguments) 
+			{
+				if (newMemory.ContainsKey (address)) 
+				{
+					newMemory [address] = value;
+				} 
+				else 
+				{
+					newMemory.Add (address, value);
+				}
+			}
+			else 
+			{
+				if (memory.ContainsKey (address)) 
+				{
+					memory [address] = value;
+				} 
+				else 
+				{
+					memory.Add (address, value);
+				}
+			}
+		}
+
+		public string ReadMemory(string address)
+		{
+			if (memory.ContainsKey (address)) 
+			{
+				return memory [address];
+			} 
+			else 
+			{
+				return "0";
+			}
+		}
 
         public void putLabel(string name, int line) 
 		{
@@ -74,7 +144,6 @@ namespace jaz
 
 		// Program Execution
 		private Stack<string> executionStack = new Stack<string>();
-        private Dictionary<string, string> memory = new Dictionary<string, string>();
 
 		private int lineNumber;
 
@@ -195,7 +264,7 @@ namespace jaz
 		// Value at Memory Location given is pushed onto the stack.
         private void rValue(JazTuple<string, string> instruction) 
 		{
-			executionStack.Push(memory[instruction.getArgs()]);
+			executionStack.Push(env.ReadMemory(instruction.getArgs()));
 		}
 
 		// Memory location given is pushed onto the stack.
@@ -215,14 +284,7 @@ namespace jaz
 		{
 			string value = executionStack.Pop ();
 			string memoryAddress = executionStack.Pop ();
-			if (memory.ContainsKey (memoryAddress)) 
-			{
-				memory [memoryAddress] = value;
-			}
-			else 
-			{
-				memory.Add (memoryAddress, value);
-			}
+			env.SetMemory (memoryAddress, value);
 		}
 
 		// Copy the top of the stack to itself.
@@ -246,13 +308,21 @@ namespace jaz
 		// Go to the line designated by the label given if equals is true.
         private void goFalse(JazTuple<string, string> instruction) 
 		{
-			
+			long value = Convert.ToInt64 (executionStack.Pop ());
+			if (value == 0) 
+			{
+				goTo (instruction);
+			}
 		}
 
 		// Go to the line designated by the label given if equals is true.
         private void goTrue(JazTuple<string, string> instruction) 
 		{
-			
+			long value = Convert.ToInt64 (executionStack.Pop ());
+			if (value != 0) 
+			{
+				goTo (instruction);
+			}
 		}
 
 		// Pop the first two items on the stack, add them and add the result to the stack.
@@ -336,7 +406,7 @@ namespace jaz
 			long first = Convert.ToInt64 (executionStack.Pop ());
 			long second = Convert.ToInt64 (executionStack.Pop ());
 			string result = "0";
-			if (first <= second) 
+			if (first >= second) 
 			{
 				result = "1";
 			}
@@ -348,7 +418,7 @@ namespace jaz
 			long first = Convert.ToInt64 (executionStack.Pop ());
 			long second = Convert.ToInt64 (executionStack.Pop ());
 			string result = "0";
-			if (first >= second) 
+			if (first <= second) 
 			{
 				result = "1";
 			}
@@ -360,7 +430,7 @@ namespace jaz
 			long first = Convert.ToInt64 (executionStack.Pop ());
 			long second = Convert.ToInt64 (executionStack.Pop ());
 			string result = "0";
-			if (first < second) 
+			if (first > second) 
 			{
 				result = "1";
 			}
@@ -372,7 +442,7 @@ namespace jaz
 			long first = Convert.ToInt64 (executionStack.Pop ());
 			long second = Convert.ToInt64 (executionStack.Pop ());
 			string result = "0";
-			if (first > second) 
+			if (first < second) 
 			{
 				result = "1";
 			}
@@ -406,6 +476,7 @@ namespace jaz
 		// Begin passing arguments. We create a new stack for the subfunction.
         private void begin(JazTuple<string, string> instruction) 
 		{
+			env.startProcArgs ();
 			env.pushStack (executionStack);
 			executionStack = new Stack<string>();
 		}
@@ -413,6 +484,7 @@ namespace jaz
 		// End passing arguments. We revert to the old stack from before the subfunction.
         private void end(JazTuple<string, string> instruction) 
 		{
+			env.endProcArgs ();
 			executionStack = env.popStack ();
 		}
 
