@@ -1,0 +1,7 @@
+/Users/tyler/Documents/MonoDevelopProjects/SoftwareDevelopmentClass/jaz-interpreter/jaz/obj/Debug/.NETFramework,Version=v4.5.2.AssemblyAttribute.cs
+/Users/tyler/Documents/MonoDevelopProjects/SoftwareDevelopmentClass/jaz-interpreter/jaz/obj/Debug/.NETFramework,Version=v4.5.1.AssemblyAttribute.cs
+/Users/tyler/Documents/MonoDevelopProjects/SoftwareDevelopmentClass/jaz-interpreter/jaz/bin/Debug/jaz.exe.config
+/Users/tyler/Documents/MonoDevelopProjects/SoftwareDevelopmentClass/jaz-interpreter/jaz/bin/Debug/jaz.exe.mdb
+/Users/tyler/Documents/MonoDevelopProjects/SoftwareDevelopmentClass/jaz-interpreter/jaz/bin/Debug/jaz.exe
+/Users/tyler/Documents/MonoDevelopProjects/SoftwareDevelopmentClass/jaz-interpreter/jaz/obj/Debug/jaz.exe
+/Users/tyler/Documents/MonoDevelopProjects/SoftwareDevelopmentClass/jaz-interpreter/jaz/obj/Debug/jaz.exe.mdb

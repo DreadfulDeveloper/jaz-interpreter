@@ -8,7 +8,7 @@ namespace jaz
 {
     public class JazInterpreter
     {
-        public static void Main(String[] args)
+        public static void Main(string[] args)
         {
             if (!(args.Length > 0))
             {
@@ -18,31 +18,21 @@ namespace jaz
             // start parsing program into symbol table
             Parser parser = new Parser(args[0]);
             //evaluate symbol table once all symbols are loaded
-            JazEvaluator eval = new JazEvaluator();
+			new JazEvaluator(parser.SymbolTable, parser.Env);
         }
     }
 
-    public class SymbolTable
+    public class JazEnv
     {
-        public static List<JazTuple<string, string>> symbolTable = new List<JazTuple<string, string>>();
-    }
-
-    class JazEnv
-    {
-        private Dictionary<string, int> env = new Dictionary<string, int>();
-        private Stack<int> callee = new Stack<int>();
-
-        private bool inProc;
-        private bool afterCall;
-        private int recursive;
-        private bool returning;
+		private Dictionary<string, int> labels;
+        private Stack<int> callee;
+		private Stack<Stack<string>> scopeStack;
 
         public JazEnv()
         {
-            inProc = false;
-            afterCall = false;
-            recursive = 0;
-            returning = false;
+			labels = new Dictionary<string, int>();
+			callee = new Stack<int>();
+			scopeStack = new Stack<Stack<string>>();
         }
 
         public void startProc(int line)
@@ -55,234 +45,409 @@ namespace jaz
             return callee.Pop();
         }
 
-        public void putLabel(string name, int line) {
-            env.Add(name, line);
+        public void putLabel(string name, int line) 
+		{
+            labels.Add(name, line);
         }
 
-        public bool isInProc() {
-            return inProc;
-        }
+		public int getLineForLabel(string name)
+		{
+			return labels [name];
+		}     
 
-        public void setInProc(bool status) {
-            inProc = status;
-        }
+		public void pushStack(Stack<string> oldStack)
+		{
+			scopeStack.Push (oldStack);
+		}
 
-        public bool isAfterCall()
-        {
-            return afterCall;
-        }
-
-        public void setAfterCall(bool b)
-        {
-            afterCall = b;
-        }
-
-        public void resetRecursive()
-        {
-            recursive--;
-        }
-        
-        public bool stillCalling()
-        {
-            return this.isRecursive();
-        }
-
-        public void resetCallDepth()
-        {
-            this.resetRecursive();
-
-        }
-
-        public void incCallDepth()
-        {
-            this.incRecursive();
-        }
-
-        public void setReturning(bool b)
-        {
-            returning = b;
-        }
-
-        public bool isReturning()
-        {
-            return returning;
-        }
-
-        public void incRecursive() {
-            recursive++;
-        }
-
-        public int getRecursive() {
-            return recursive;
-        }
-
-        public bool isRecursive() {
-            return recursive > 0;
-        }       
+		public Stack<string> popStack()
+		{
+			return scopeStack.Pop ();
+		}
     }
 
     public class JazEvaluator
     {
-        private Stack<Object> executionStack = new Stack<Object>();
-        private Dictionary<String, Stack<String>> memory = new Dictionary<String, Stack<String>>();
-        private Dictionary<String, Stack<String>> procMemory = new Dictionary<String, Stack<String>>();
+		// Parameters Passed
+		private static List<JazTuple<string, string>> symbolTable;
+		private static JazEnv env; 
 
-        public JazEvaluator()
+		// Program Execution
+		private Stack<string> executionStack = new Stack<string>();
+        private Dictionary<string, string> memory = new Dictionary<string, string>();
+
+		private int lineNumber;
+
+		public JazEvaluator(List<JazTuple<string, string>> symbols, JazEnv enviornment)
         {
-            int lineNumber = 0;
-            JazTuple<string, string> currentInstruction = SymbolTable.symbolTable[lineNumber];
-            while(currentInstruction.getAction() != "halt")
+			symbolTable = symbols;
+			env = enviornment;
+			lineNumber = 0;
+
+			JazTuple<string, string> currentInstruction = symbolTable[lineNumber];
+			while(currentInstruction.getAction() != "halt")
             {
-                currentInstruction = SymbolTable.symbolTable[lineNumber];
-                switch (currentInstruction.getAction())
-                {
-                    case "push":
-                        push(currentInstruction);
-                        break;
-                    case "rvalue":
-                        rValue(currentInstruction);
-                        break;
-                    case "lvalue":
-                        lValue(currentInstruction);
-                        break;
-                    case "pop":
-                        pop();
-                        break;
-                    case ":=":
-                        colonEqual(currentInstruction);
-                        break;
-                    case "copy":
-                        copy();
-                        break;
-                    case "label":
-                        label(currentInstruction);
-                        break;
-                    case "goto":
-                        goTo(currentInstruction);
-                        break;
-                    case "gofalse":
-                        goFalse(currentInstruction);
-                        break;
-                    case "gotrue":
-                        goTrue(currentInstruction);
-                        break;
-                    case "+":
-                        add(currentInstruction);
-                        break;
-                    case "-":
-                        subtract(currentInstruction);
-                        break;
-                    case "*":
-                        multiply(currentInstruction);
-                        break;
-                    case "/":
-                        divide(currentInstruction);
-                        break;
-                    case "div":
-                        mod(currentInstruction);
-                        break;
-                    case "&":
-                        and(currentInstruction);
-                        break;
-                    case "!":
-                        neg(currentInstruction);
-                        break;
-                    case "|":
-                        or(currentInstruction);
-                        break;
-                    case "<>":
-                        notEqual(currentInstruction);
-                        break;
-                    case "<=":
-                        lessThanEqualTo(currentInstruction);
-                        break;
-                    case ">=":
-                        greaterThanEualTo(currentInstruction);
-                        break;
-                    case "<":
-                        lessThan(currentInstruction);
-                        break;
-                    case ">":
-                        greaterThan(currentInstruction);
-                        break;
-                    case "=":
-                        equal(currentInstruction);
-                        break;
-                    case "print":
-                        print(currentInstruction);
-                        break;
-                    case "show":
-                        show(currentInstruction);
-                        break;
-                    case "begin":
-                        begin(currentInstruction);
-                        break;
-                    case "end":
-                        end(currentInstruction);
-                        break;
-                    case "return":
-                        ret(currentInstruction);
-                        break;
-                    case "call":
-                        call(currentInstruction);
-                        break;
-                    default:
-                        break;
-                }
-                lineNumber++;
+				currentInstruction = symbolTable[lineNumber];
+				switch (currentInstruction.getAction ()) {
+					case "push":
+						push (currentInstruction);
+						break;
+					case "rvalue":
+						rValue (currentInstruction);
+						break;
+					case "lvalue":
+						lValue (currentInstruction);
+						break;
+					case "pop":
+						pop ();
+						break;
+					case ":=":
+						colonEqual (currentInstruction);
+						break;
+					case "copy":
+						copy ();
+						break;
+					case "label":
+						label (currentInstruction);
+						break;
+					case "goto":
+						goTo (currentInstruction);
+						break;
+					case "gofalse":
+						goFalse (currentInstruction);
+						break;
+					case "gotrue":
+						goTrue (currentInstruction);
+						break;
+					case "+":
+						add (currentInstruction);
+						break;
+					case "-":
+						subtract (currentInstruction);
+						break;
+					case "*":
+						multiply (currentInstruction);
+						break;
+					case "/":
+						divide (currentInstruction);
+						break;
+					case "div":
+						mod (currentInstruction);
+						break;
+					case "&":
+						and (currentInstruction);
+						break;
+					case "!":
+						neg (currentInstruction);
+						break;
+					case "|":
+						or (currentInstruction);
+						break;
+					case "<>":
+						notEqual (currentInstruction);
+						break;
+					case "<=":
+						lessThanEqualTo (currentInstruction);
+						break;
+					case ">=":
+						greaterThanEualTo (currentInstruction);
+						break;
+					case "<":
+						lessThan (currentInstruction);
+						break;
+					case ">":
+						greaterThan (currentInstruction);
+						break;
+					case "=":
+						equal (currentInstruction);
+						break;
+					case "print":
+						print (currentInstruction);
+						break;
+					case "show":
+						show (currentInstruction);
+						break;
+					case "begin":
+						begin (currentInstruction);
+						break;
+					case "end":
+						end (currentInstruction);
+						break;
+					case "return":
+						ret (currentInstruction);
+						break;
+					case "call":
+						call (currentInstruction);
+						break;
+					default:
+						break;
+				}
+				lineNumber++;
             }
         }
 
-        private void push(JazTuple<string, string> instruction) {
+		// Value given is pushed onto the stack.
+        private void push(JazTuple<string, string> instruction) 
+		{
             executionStack.Push(instruction.getArgs());
         }
-        private void rValue(JazTuple<string, string> instruction) { }
-        private void lValue(JazTuple<string, string> instruction) { }
-        private void pop() {
+
+		// Value at Memory Location given is pushed onto the stack.
+        private void rValue(JazTuple<string, string> instruction) 
+		{
+			executionStack.Push(memory[instruction.getArgs()]);
+		}
+
+		// Memory location given is pushed onto the stack.
+        private void lValue(JazTuple<string, string> instruction) 
+		{
+			executionStack.Push (instruction.getArgs ());
+		}
+
+		// The top value is popped off of the stack.
+        private void pop() 
+		{
             executionStack.Pop();
         }
-        private void colonEqual(JazTuple<string, string> instruction) { }
-        private void copy() {
+
+		// Pop two off the stack. Put a value of the first at index of the second in memory.
+        private void colonEqual(JazTuple<string, string> instruction) 
+		{
+			string value = executionStack.Pop ();
+			string memoryAddress = executionStack.Pop ();
+			if (memory.ContainsKey (memoryAddress)) 
+			{
+				memory [memoryAddress] = value;
+			}
+			else 
+			{
+				memory.Add (memoryAddress, value);
+			}
+		}
+
+		// Copy the top of the stack to itself.
+        private void copy() 
+		{
             executionStack.Push(executionStack.Peek());
         }
-        private void label(JazTuple<string, string> instruction) { }
-        private void goTo(JazTuple<string, string> instruction) { }
-        private void goFalse(JazTuple<string, string> instruction) { }
-        private void goTrue(JazTuple<string, string> instruction) { }
-        private void halt(JazTuple<string, string> instruction) { }
-        private void add(JazTuple<string, string> instruction) { }
-        private void subtract(JazTuple<string, string> instruction) { }
-        private void multiply(JazTuple<string, string> instruction) { }
-        private void divide(JazTuple<string, string> instruction) { }
-        private void mod(JazTuple<string, string> instruction) { }
-        private void and(JazTuple<string, string> instruction) { }
-        private void neg(JazTuple<string, string> instruction) { }
-        private void or(JazTuple<string, string> instruction) { }
-        private void notEqual(JazTuple<string, string> instruction) { }
-        private void lessThanEqualTo(JazTuple<string, string> instruction) { }
-        private void greaterThanEualTo(JazTuple<string, string> instruction) { }
-        private void lessThan(JazTuple<string, string> instruction) { }
-        private void greaterThan(JazTuple<string, string> instruction) { }
-        private void equal(JazTuple<string, string> instruction) { }
-        private void print(JazTuple<string, string> instruction) {
-            Console.WriteLine(executionStack.Pop());
+
+		// labels are ignored
+        private void label(JazTuple<string, string> instruction) 
+		{ 
+		}
+
+		// Go to the line designated by the label given.
+        private void goTo(JazTuple<string, string> instruction) 
+		{
+			string label = instruction.getArgs ();
+			lineNumber = env.getLineForLabel(label);
+		}
+
+		// Go to the line designated by the label given if equals is true.
+        private void goFalse(JazTuple<string, string> instruction) 
+		{
+			
+		}
+
+		// Go to the line designated by the label given if equals is true.
+        private void goTrue(JazTuple<string, string> instruction) 
+		{
+			
+		}
+
+		// Pop the first two items on the stack, add them and add the result to the stack.
+        private void add(JazTuple<string, string> instruction) 
+		{
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(first + second));
+		}
+
+		// Pop the first two items on the stack, subtract them and add the result to the stack.
+        private void subtract(JazTuple<string, string> instruction) 
+		{ 
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(second - first));
+		}
+
+		// Pop the first two items on the stack, multiply them and add the result to the stack.
+        private void multiply(JazTuple<string, string> instruction) 
+		{
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(first * second));
+		}
+
+		// Pop the first two items on the stack, divide them and add the result to the stack.
+        private void divide(JazTuple<string, string> instruction) 
+		{ 
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(second / first));
+		}
+        
+		// Pop the first two items on the stack, divide them and add the remainder to the stack.
+		private void mod(JazTuple<string, string> instruction) 
+		{
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(second % first));
+		}
+
+		// Pop the first two items on the stack, and them and add the result to the stack.
+        private void and(JazTuple<string, string> instruction) 
+		{
+			bool first = Convert.ToBoolean (executionStack.Pop ());
+			bool second = Convert.ToBoolean (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(first && second));
+		}
+
+		// Pop the first item on the stack, negate it and add the result to the stack.
+        private void neg(JazTuple<string, string> instruction) 
+		{ 
+			bool value = Convert.ToBoolean (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(!value));
+		}
+
+		// Pop the first two items on the stack, or them and add the result to the stack.
+        private void or(JazTuple<string, string> instruction) 
+		{
+			bool first = Convert.ToBoolean (executionStack.Pop ());
+			bool second = Convert.ToBoolean (executionStack.Pop ());
+			executionStack.Push (Convert.ToString(first || second));
+		}
+
+
+        private void notEqual(JazTuple<string, string> instruction) 
+		{ 
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			string result = "0";
+			if (first != second) 
+			{
+				result = "1";
+			}
+			executionStack.Push (result);
+		}
+
+        private void lessThanEqualTo(JazTuple<string, string> instruction) 
+		{
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			string result = "0";
+			if (first <= second) 
+			{
+				result = "1";
+			}
+			executionStack.Push (result);
+		}
+
+        private void greaterThanEualTo(JazTuple<string, string> instruction) 
+		{
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			string result = "0";
+			if (first >= second) 
+			{
+				result = "1";
+			}
+			executionStack.Push (result);
+		}
+			
+        private void lessThan(JazTuple<string, string> instruction) 
+		{ 
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			string result = "0";
+			if (first < second) 
+			{
+				result = "1";
+			}
+			executionStack.Push (result);
+		}
+
+        private void greaterThan(JazTuple<string, string> instruction) 
+		{ 
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			string result = "0";
+			if (first > second) 
+			{
+				result = "1";
+			}
+			executionStack.Push (result);
+		}
+
+        private void equal(JazTuple<string, string> instruction) 
+		{ 
+			long first = Convert.ToInt64 (executionStack.Pop ());
+			long second = Convert.ToInt64 (executionStack.Pop ());
+			string result = "0";
+			if (first == second) 
+			{
+				result = "1";
+			}
+			executionStack.Push (result);
+		}
+
+		// Print the top item from the stack and print it.
+        private void print(JazTuple<string, string> instruction) 
+		{
+			Console.WriteLine(executionStack.Peek());
         }
+
+		// Show the value given.
         private void show(JazTuple<string, string> instruction)
         {
             Console.WriteLine(instruction.getArgs());
         }
-        private void begin(JazTuple<string, string> instruction) { }
-        private void end(JazTuple<string, string> instruction) { }
-        private void ret(JazTuple<string, string> instruction) { }
-        private void call(JazTuple<string, string> instruction) { }
+
+		// Begin passing arguments. We create a new stack for the subfunction.
+        private void begin(JazTuple<string, string> instruction) 
+		{
+			env.pushStack (executionStack);
+			executionStack = new Stack<string>();
+		}
+
+		// End passing arguments. We revert to the old stack from before the subfunction.
+        private void end(JazTuple<string, string> instruction) 
+		{
+			executionStack = env.popStack ();
+		}
+
+		// Return to the line we called the function from.
+        private void ret(JazTuple<string, string> instruction) 
+		{
+			lineNumber = env.endProc ();
+		}
+
+		// Call the line designated by the label given.
+        private void call(JazTuple<string, string> instruction) 
+		{
+			env.startProc (lineNumber);
+			goTo (instruction);
+		}
     }
     
     public class Parser
     {
-        static JazEnv env = new JazEnv();
+		public List<JazTuple<string, string>> SymbolTable 
+		{
+			get;
+			private set;
+		}
 
-        public Parser(String file)
+		public JazEnv Env 
+		{
+			get;
+			private set;
+		}
+
+        public Parser(string file)
         {
+			Env = new JazEnv();
+			SymbolTable = new List<JazTuple<string, string>>();
             this.parseFile(file);
         }
 
@@ -290,7 +455,7 @@ namespace jaz
         {
             using (System.IO.StreamReader sr = System.IO.File.OpenText(file))
             {
-                String t;
+                string t;
                 int lineNumber = 0;
                 while ((t = sr.ReadLine()) != null)
                 {
@@ -299,21 +464,21 @@ namespace jaz
             }
         }
 
-        private int parse(String t, int lineNumber) {
+        private int parse(string t, int lineNumber) {
             t = t.Trim();
             string label = t.Split(' ')[0].Trim();
             string args = t.Substring(t.Split(' ')[0].Length).Trim();
 
-            if(!String.IsNullOrEmpty(label)) {
+            if(!string.IsNullOrEmpty(label)) {
                 //load tuples into symbol table
                 if(label == "label")
                 {
-                    env.putLabel(args, lineNumber);
-                    SymbolTable.symbolTable.Add(new JazTuple<string, string>(label, args));
+                    Env.putLabel(args, lineNumber);
+                    SymbolTable.Add(new JazTuple<string, string>(label, args));
                 }
                 else
                 {
-                    SymbolTable.symbolTable.Add(new JazTuple<string, string>(label, args));
+                    SymbolTable.Add(new JazTuple<string, string>(label, args));
                 }
                 
                 lineNumber++;
@@ -352,7 +517,7 @@ namespace jaz
             R = r;
         }
 
-        public String toString()
+        public string toString()
         {
             return "(" + A + " " + R + ")";
         }
